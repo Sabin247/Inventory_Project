@@ -1,1 +1,97 @@
 # Inventory_Project
+**--Given, we have following tables in the database, CUSTOMERS, PRODUCT, PAYMENT, SHIPMENT, with some data in it. I have written some SQL queries that**  
+**-- are commonly used to get information about the customers.** 
+**--I have also written some common procedures, triggers and function that are often used in given database.** 
+**-- A query to show total number of orders for each customer. Show full names and sort the records by Last name in ascending order.**
+
+SELECT  LAST_NAME, FIRST_NAME, COUNT(ORDER_ID) AS TOTAL_ORDERS
+FROM CUSTOMERS
+LEFT JOIN ORDERS ON CUSTOMERS.CUSTOMER_ID = ORDERS.CUSTOMER_ID
+GROUP BY LAST_NAME, FIRST_NAME
+ORDER BY LAST_NAME;
+
+
+**/*A query to show best-selling products (IDs, product name, and Sold quantity). Shows top five best-selling products. Sorted by sold quantity in descending order.*/**
+SELECT p.product_id, p.product_name, SUM(ol.quantity) AS Sold_Quantity FROM products p, order_lines ol
+WHERE p.product_id = ol.product_id
+GROUP BY p.product_id, p.product_name
+ORDER BY sold_quantity DESC
+FETCH FIRST 5 ROWS ONLY;
+
+**/*A query to calculate the number of customers who made their payments by CASH*/**
+SELECT pm.payment_description, COUNT(DISTINCT CUSTOMER_ID) AS Total FROM orders o, payment_method pm
+WHERE o.payment_method_id = pm.payment_method_id 
+AND pm.payment_description = 'Cash'
+GROUP BY pm.payment_description;
+
+**/*A query to find the most popular shipment method.*/**
+SELECT sm.shipment_description, COUNT(o.order_id) as Popular_Shipment FROM orders o, shipment_method sm
+WHERE  o.shipment_method_id = sm.shipment_method_id
+GROUP BY sm.shipment_description
+ORDER BY Popular_Shipment DESC
+FETCH FIRST 1 ROW ONLY;
+
+**--Created a stored procedure named Add_Shipment_Method that lets a user insert a new shipment method to the**
+**--shipment method table in the database. This procedure has two parameters, one for each of the two**
+**--columns in this table.** 
+
+CREATE OR REPLACE PROCEDURE Add_Shipment_Method(shipment_id_P IN number, shipment_description_P IN varchar2)
+AS
+BEGIN
+INSERT INTO shipment_method VALUES(shipment_id_P, shipment_description_P);
+COMMIT;
+EXCEPTION WHEN OTHERS THEN
+ROLLBACK;
+END;
+/
+
+CALL Add_Shipment_Method(12, 'Sea');
+SELECT * FROM shipment_method
+ORDER BY shipment_method_id;
+
+
+
+**/*Created a function named Get_balance_due that accepts order_id and returns balance due.*/**
+
+CREATE OR REPLACE FUNCTION Get_balance_due(order_id_p number)
+RETURN NUMBER
+AS
+Balance_due number;
+BEGIN
+Select sum(total_amount) into Balance_due from order_lines , orders
+where order_lines.order_id = orders.order_id and order_lines.order_id = order_id_p and orders.paid = 'N';
+Return balance_due;
+END;
+/
+
+SELECT First_name, Last_name, get_balance_due(orders.order_id) FROM Customers, Orders, Order_Lines
+WHERE Customers.Customer_id = Orders.Customer_id 
+AND Orders.Order_id = Order_Lines.Order_id 
+AND To_Char(Order_Date, 'mm/dd/yyyy') ='09/30/2002'
+GROUP BY First_name, Last_name, get_balance_due(orders.order_id);
+
+
+
+**--Created a trigger named Check_Availability. The trigger raises an application error when a product is out**
+**--of stock or not enough to fulfil an order. It displays a message on the estimated date when the**
+**--product will be available (use expected delivery date).**
+
+SET SERVEROUTPUT ON;
+CREATE OR REPLACE TRIGGER Check_Availability
+BEFORE INSERT OR UPDATE ON order_lines
+FOR EACH ROW
+DECLARE 
+ qty Number;
+ expected_date Date;
+BEGIN
+SELECT qty_on_hand, delivery_date  INTO qty, expected_date  FROM product_inventory 
+WHERE product_inventory.product_id = :new.product_id;
+IF(qty < :new.quantity) THEN
+Raise_application_error(-20005,'Product will be available on: ' || expected_date);
+END IF;
+END;
+/
+SHOW ERRORS;
+
+INSERT INTO order_lines VALUES(388,1023,100,20,2,160);
+
