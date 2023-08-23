@@ -12,6 +12,7 @@ ORDER BY LAST_NAME;
 
 
 **/*A query to show best-selling products (IDs, product name, and Sold quantity). Shows top five best-selling products. Sorted by sold quantity in descending order.*/**
+
 SELECT p.product_id, p.product_name, SUM(ol.quantity) AS Sold_Quantity FROM products p, order_lines ol
 WHERE p.product_id = ol.product_id
 GROUP BY p.product_id, p.product_name
@@ -19,12 +20,14 @@ ORDER BY sold_quantity DESC
 FETCH FIRST 5 ROWS ONLY;
 
 **/*A query to calculate the number of customers who made their payments by CASH*/**
+
 SELECT pm.payment_description, COUNT(DISTINCT CUSTOMER_ID) AS Total FROM orders o, payment_method pm
 WHERE o.payment_method_id = pm.payment_method_id 
 AND pm.payment_description = 'Cash'
 GROUP BY pm.payment_description;
 
 **/*A query to find the most popular shipment method.*/**
+
 SELECT sm.shipment_description, COUNT(o.order_id) as Popular_Shipment FROM orders o, shipment_method sm
 WHERE  o.shipment_method_id = sm.shipment_method_id
 GROUP BY sm.shipment_description
